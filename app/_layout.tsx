@@ -1,21 +1,49 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { IconProvider } from '@/context/iconContext';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, Redirect } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
+import { AuthProvider } from '@/context/authContext';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { getCurrentUser, onAuthStateChange } from '@/context/supabaseAuth';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+ // const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  useEffect(() => {
+    checkUser();
+    const authSubscription = onAuthStateChange((user) => {
+      //setUser(user);
+      setIsLoading(false);
+    });
+
+    return () => {
+      authSubscription.data?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const { user } = await getCurrentUser();
+    // setUser(user);
+    } catch (error) {
+      console.error('Error checking user:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (loaded) {
@@ -23,17 +51,29 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded) {
+  if (!loaded || isLoading) {
     return null;
   }
-
+const user= {id:1, email:"test@test.com"}
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <AuthProvider>
+      <IconProvider>
       <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
+        {!user ? (
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        ) : (
+          <Stack.Screen name="(biby)" options={{ headerShown: false }} />
+        )}
+        <Stack.Screen name="+not-found" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="Screens/iaAbout" 
+          options={{ 
+            headerBackTitle: 'Back',
+            headerTitle: 'About',
+          }} 
+        />
       </Stack>
       <StatusBar style="auto" />
-    </ThemeProvider>
+      </IconProvider>
+    </AuthProvider>
   );
 }
